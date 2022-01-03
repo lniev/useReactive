@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 class ProxyHandler {
   constructor(state = {}, setState) {
@@ -28,25 +28,29 @@ class ProxyHandler {
     this.setState({ ...target, [key]: value });
     return true;
   }
-  static getType() {
+  getType() {
     return Object.prototype.toString.call(this.state).slice(8, -1);
   }
 }
 const useReactive = (initialState) => {
   const [state, setState] = useState(initialState);
+  const preProxyState = useRef();
   const _ProxyHandler = new ProxyHandler(state, setState);
   const proxyHandler = {
     set: _ProxyHandler.set.bind(_ProxyHandler),
   };
   let stateProxy = Proxy.revocable(state, proxyHandler);
   useEffect(() => {
+    if (preProxyState.current) {
+      preProxyState.current.revoke();
+    }
+    preProxyState.current = stateProxy;
     return () => {
       // 页面卸载的时候取消代理
       stateProxy.revoke();
       stateProxy = null;
-      console.log("stateProxy revoke");
     };
-  }, []);
+  }, [stateProxy]);
   return [stateProxy.proxy, setState];
 };
 
